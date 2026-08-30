@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gestionale Ore e Spese PRO V2</title>
+<style>
+:root{
+--bg:#2f2f3f;--panel:#3b3b52;--panel2:#474763;--text:#ffffff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Segoe UI,Arial,sans-serif;font-size:16px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:10px;background:#202028}
+button{border:0;border-radius:6px;padding:10px 14px;background:var(--panel2);color:#fff;cursor:pointer}
+.wrap{padding:12px}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.card,.tablebox,.modalContent{background:var(--panel)}
+.card{padding:12px;border-radius:10px;text-align:center}
+.card b{display:block;font-size:24px;margin-top:5px}
+.tablebox{margin-top:12px;padding:10px;border-radius:10px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px;border-bottom:1px solid #666}
+.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center}
+.modalContent{width:95%;max-width:1100px;padding:15px;border-radius:12px;max-height:92vh;overflow:auto}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.section{background:var(--panel2);padding:10px;border-radius:8px}
+input,textarea,select{width:100%;padding:7px;background:#222;color:#fff;border:1px solid #666}
+textarea{height:100px}
+.right{text-align:right;margin-top:10px}
+@media(max-width:900px){.grid,.cards,.moneyDash{grid-template-columns:1fr}}
+.moneyDash{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:15px}
+.moneyCard{background:#fff;color:#000;border-radius:10px;padding:15px;text-align:center;border:3px solid #999}
+.moneyCard .tit{font-weight:bold;font-size:20px}
+.moneyCard .val{font-size:30px;margin-top:10px}
+.creditBox{margin-top:15px;background:#c8ffd0;color:#000;border:4px solid #4caf50;
+border-radius:12px;padding:20px;text-align:center}
+.creditTitle{font-size:24px;font-weight:bold}
+.creditValue{font-size:48px;font-weight:bold;margin:10px 0}
+.creditNote{font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+<button onclick="nuovo()">Nuovo</button>
+<button onclick="salvaJSON()">Salva JSON</button>
+<button onclick="caricaJSON()">Carica JSON</button>
+<button onclick="apriStampe()">Stampa</button>
+<button onclick="apriArchivioPDF()">📚 Archivio PDF</button>
+<button onclick="setup()">Setup</button>
+<button onclick="apriAspetto()">Aspetto</button><button onclick="esci()">Esci</button><span id="archivioInfo" style="padding:10px;font-weight:bold">📁 Archivio attivo: Nuovo archivio non salvato</span>
+
+</div>
+
+<div class="wrap">
+<div class="cards">
+<div class="card">Ore Totali<b id="oreTot">0</b></div>
+<div class="card">Persona<b id="persTot">€ 0</b></div>
+<div class="card">Veicolo<b id="veiTot">€ 0</b></div>
+<div class="card">Generale<b id="genTot">€ 0</b></div>
+<div class="card">Registrazioni<b id="regTot">0</b></div>
+</div>
+
+<div class="tablebox">
+
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+<div>
+<label>📅 Cerca Data</label>
+<input type="date" id="filtroData" onclick="this.showPicker&&this.showPicker()">
+<button onclick="cercaData()">Cerca</button>
+</div>
+<div>
+<label>🏢 Cerca Azienda</label>
+<input id="filtroAzienda" placeholder="Nome azienda">
+<button onclick="cercaAzienda()">Cerca</button>
+</div>
+<div>
+<button onclick="mostraTutto()">Mostra Tutto</button>
+</div>
+<span id="infoFiltro" style="padding:8px;font-weight:bold"></span>
+</div>
+<table>
+<thead><tr>
+<th>Data</th><th>Azienda</th><th>Ore</th><th>Guadagno €</th><th>Spese Persona €</th><th>Spese Veicolo €</th><th>Rimborsi €</th><th>Azioni</th>
+</tr></thead>
+<tbody id="tb"></tbody>
+</table>
+</div>
+
+<div class="moneyDash">
+<div class="moneyCard"><div class="tit">GUADAGNO LAVORO</div><div class="val" id="gainBox">€ 0</div></div>
+<div class="moneyCard"><div class="tit">SPESE PERSONA</div><div class="val" id="personBox">€ 0</div></div>
+<div class="moneyCard"><div class="tit">SPESE VEICOLO</div><div class="val" id="vehicleBox">€ 0</div></div>
+</div>
+
+<div class="creditBox">
+<div class="creditTitle">TOTALE CREDITO</div>
+<div class="creditValue" id="creditBox">€ 0</div>
+<div class="creditNote">Comprensivo di lavoro e rimborsi</div>
+</div>
+
+</div>
+
+<div class="modal" id="mod">
+<div class="modalContent">
+<h2>Registrazione</h2>
+<div class="grid">
+<div class="section">
+<label>Data<input type="date" id="data"></label>
+<label>Azienda<input id="cliente"></label>
+<label>Località<input id="localita"></label><label>Km Percorsi<input type="number" id="km" value="0"></label>
+</div>
+
+<div class="section">
+<label>Inizio Mattino<input type="time" id="im"></label>
+<label>Fine Mattino<input type="time" id="fm"></label>
+<label>Inizio Pomeriggio<input type="time" id="ip"></label>
+<label>Fine Pomeriggio<input type="time" id="fp"></label>
+</div>
+
+<div class="section">
+<label>Pranzo<input type="number" id="pranzo" value="0"></label>
+<label>Cena<input type="number" id="cena" value="0"></label>
+<label>Hotel<input type="number" id="hotel" value="0"></label>
+<label>Altre Persona<input type="number" id="altrep" value="0"></label>
+</div>
+
+<div class="section">
+<label>Carburante<input type="number" id="carb" value="0"></label>
+<label>Autostrada<input type="number" id="auto" value="0"></label>
+<label>Parcheggio<input type="number" id="park" value="0"></label>
+<label>Altre Veicolo<input type="number" id="altrev" value="0"></label>
+</div>
+
+<div class="section" style="grid-column:span 2">
+<label>Note<textarea id="note"></textarea></label>
+</div>
+</div>
+<div class="right">
+<button onclick="mod.style.display='none'">Annulla</button>
+<button onclick="salva()">Salva</button>
+</div>
+</div>
+</div>
+
+<div class="modal" id="aspetto">
+<div class="modalContent" style="max-width:450px">
+<h2>Aspetto</h2>
+
+<label>Tema</label>
+<select id="tema" onchange="applicaTema()">
+<option>Dark Blu</option>
+<option>Dark Grigio</option>
+<option>Dark Verde</option>
+<option>Dark Rosso</option>
+<option>Chiaro</option>
+</select>
+
+<label>Colore Testo</label>
+<select id="testo" onchange="applicaTema()">
+<option>Bianco</option>
+<option>Giallo</option>
+<option>Verde Chiaro</option>
+<option>Azzurro</option>
+<option>Arancione</option>
+</select>
+
+<label>Dimensione Testo</label>
+<select id="font" onchange="applicaTema()">
+<option>14</option><option selected>16</option><option>18</option><option>20</option><option>22</option>
+</select>
+
+<div class="right"><button onclick="aspetto.style.display='none'">Chiudi</button></div>
+</div>
+</div>
+
+<script>
+let db={setup:{lavoratore:'',ditta:'',localita:'',veicolo:'',targa:'',tariffa:0,rimborsoKm:0},config:{tema:'Dark Blu',testo:'Bianco',font:'16'},records:[]};
+let edit=-1; let modificato=false; let archivioAttivo='Nuovo archivio non salvato';
+
+
+let pdfDirHandle=null;
+
+let pdfDB=null;
+
+function apriPdfDB(){
+ return new Promise((ok,no)=>{
+  const r=indexedDB.open('GestionalePDF',1);
+  r.onupgradeneeded=e=>e.target.result.createObjectStore('cfg');
+  r.onsuccess=e=>{pdfDB=e.target.result;ok();};
+  r.onerror=no;
+ });
+}
+
+async function salvaHandlePDF(handle){
+ if(!pdfDB) await apriPdfDB();
+ const tx=pdfDB.transaction('cfg','readwrite');
+ tx.objectStore('cfg').put(handle,'pdfHandle');
+}
+
+async function caricaHandlePDF(){
+ if(!pdfDB) await apriPdfDB();
+ return new Promise(res=>{
+  const tx=pdfDB.transaction('cfg','readonly');
+  const rq=tx.objectStore('cfg').get('pdfHandle');
+  rq.onsuccess=()=>res(rq.result||null);
+  rq.onerror=()=>res(null);
+ });
+}
+
+let pdfCorrenteURL='';
+
+async function selezionaCartellaPDF(){
+ try{
+   pdfDirHandle=await window.showDirectoryPicker({mode:'read'});
+   document.getElementById('pdfFolderInfo').textContent='✅ '+pdfDirHandle.name; salvaHandlePDF(pdfDirHandle);
+   localStorage.setItem('pdfFolderName',pdfDirHandle.name);
+ }catch(e){}
+}
+
+window.addEventListener('load',async ()=>{
+ try{
+  pdfDirHandle=await caricaHandlePDF();
+  if(pdfDirHandle){
+   let stato='prompt';
+   try{ stato=await pdfDirHandle.queryPermission({mode:'read'});}catch(e){}
+   if(stato!=='granted'){
+      try{ stato=await pdfDirHandle.requestPermission({mode:'read'});}catch(e){}
+   }
+   if(stato==='granted'){
+      const el=document.getElementById('pdfFolderInfo');
+      if(el) el.textContent='✅ '+pdfDirHandle.name+' (ripristinata)';
+   }else{
+      pdfDirHandle=null;
+   }
+  }
+ }catch(e){}
+
+ const n=localStorage.getItem('pdfFolderName');
+ const el=document.getElementById('pdfFolderInfo');
+ if(n && el) el.textContent='📁 Ultima cartella: '+n+' (riselezionare per autorizzare)';
+});
+
+async function apriArchivioPDF(){
+
+ if(!pdfDirHandle){
+   try{
+      pdfDirHandle=await caricaHandlePDF();
+   }catch(e){}
+ }
+
+ if(!pdfDirHandle){
+   const nome=localStorage.getItem('pdfFolderName')||'PDF';
+   alert('Cartella memorizzata: '+nome+'\n\nIl browser non ha restituito il collegamento salvato. Selezionala una sola volta per ripristinarlo.');
+   await selezionaCartellaPDF();
+   if(!pdfDirHandle) return;
+ }else{
+   try{
+      let p=await pdfDirHandle.queryPermission({mode:'read'});
+      if(p!=='granted'){
+         p=await pdfDirHandle.requestPermission({mode:'read'});
+      }
+      if(p!=='granted') return;
+   }catch(e){}
+ }
+ let list=document.getElementById('pdfList');
+ list.innerHTML='';
+ for await (const entry of pdfDirHandle.values()){
+   if(entry.kind==='file' && entry.name.toLowerCase().endsWith('.pdf')){
+      const d=document.createElement('div');
+      d.textContent=entry.name;
+      d.style.cssText='padding:8px;border-bottom:1px solid #555;cursor:pointer';
+      d.onclick=()=>apriPDF(entry.name);
+      list.appendChild(d);
+   }
+ }
+ document.getElementById('pdfModal').style.display='flex';
+}
+
+async function apriPDF(nome){
+ const fh=await pdfDirHandle.getFileHandle(nome);
+ const f=await fh.getFile();
+ try{
+ if(pdfCorrenteURL) URL.revokeObjectURL(pdfCorrenteURL);
+}catch(e){}
+pdfCorrenteURL=URL.createObjectURL(f);
+const viewer=document.getElementById('pdfViewer');
+viewer.src='about:blank';
+viewer.style.visibility='visible';
+viewer.src=pdfCorrenteURL;
+ document.getElementById('pdfNome').textContent='📄 '+nome;
+}
+
+function chiudiPdfViewer(){
+ try{
+   if(pdfCorrenteURL){
+      URL.revokeObjectURL(pdfCorrenteURL);
+   }
+ }catch(e){}
+ pdfCorrenteURL='';
+ const v=document.getElementById('pdfViewer');
+ v.src='about:blank';
+ v.style.visibility='hidden';
+ document.getElementById('pdfNome').textContent='Nessun PDF aperto';
+}
+
+function apriPdfNuovaFinestra(){
+ if(pdfCorrenteURL) window.open(pdfCorrenteURL,'_blank');
+}
+
+
+
+function oggi(){return new Date().toISOString().split('T')[0]}
+function apriAspetto(){
+if(archivioAttivo==='Nuovo archivio non salvato'){
+ alert('ATTENZIONE\n\nNessun archivio caricato.\n\nCarica un archivio JSON prima di modificare l\'aspetto.\n\nLe impostazioni grafiche vengono salvate insieme all\'archivio.');
+ return;
+}
+aspetto.style.display='flex';
+}
+
+function nuovo(){
+edit=-1;
+data.value=oggi();
+cliente.value=db.setup.ditta||'';
+localita.value=db.setup.localita||'';
+['im','fm','ip','fp','note'].forEach(x=>window[x].value='');
+['pranzo','cena','hotel','altrep','carb','auto','park','altrev','km'].forEach(x=>window[x].value=0);
+mod.style.display='flex';
+}
+
+function h(a,b){if(!a||!b)return 0;let A=a.split(':'),B=b.split(':');return((B[0]*60+ +B[1])-(A[0]*60+ +A[1]))/60}
+function oreCalcolate(r){return Number((h(r.im,r.fm)+h(r.ip,r.fp)).toFixed(2));}
+
+function salva(){
+let r={data:data.value,cliente:cliente.value,localita:localita.value,im:im.value,fm:fm.value,ip:ip.value,fp:fp.value,
+pranzo:+pranzo.value,cena:+cena.value,hotel:+hotel.value,altrep:+altrep.value,
+carb:+carb.value,auto:+auto.value,park:+park.value,altrev:+altrev.value,km:+km.value,note:note.value};
+if(edit<0)db.records.push(r); else db.records[edit]=r;
+modificato=true; render(); mod.style.display='none';
+}
+
+function render(){
+tb.innerHTML='';let o=0,p=0,v=0,g=0;
+db.records.forEach((r,i)=>{
+let ore=oreCalcolate(r),pe=r.pranzo+r.cena+r.hotel+r.altrep,ve=r.carb+r.auto+r.park+r.altrev; let guad=ore*(db.setup.tariffa||0); let rimb=pe+ve;
+o+=ore;p+=pe;v+=ve;g+=guad;
+tb.innerHTML+=`<tr><td>${formattaDataIT(r.data)}</td><td>${r.cliente}</td><td>${ore.toFixed(2)}</td><td>${guad.toFixed(2)}</td><td>${pe.toFixed(2)}</td><td>${ve.toFixed(2)}</td><td>${rimb.toFixed(2)}</td><td><button onclick="carica(${i})">Modifica</button> <button onclick="cancella(${i})">Elimina</button></td></tr>`;
+});
+oreTot.textContent=o.toFixed(2);persTot.textContent='€ '+p.toFixed(2);veiTot.textContent='€ '+v.toFixed(2);genTot.textContent='€ '+(p+v).toFixed(2);regTot.textContent=db.records.length;gainBox.textContent='€ '+g.toFixed(2);personBox.textContent='€ '+p.toFixed(2);vehicleBox.textContent='€ '+v.toFixed(2);creditBox.textContent='€ '+(g+p+v).toFixed(2);
+}
+
+function carica(i){edit=i;let r=db.records[i];for(let k in r){if(document.getElementById(k))document.getElementById(k).value=r[k]}mod.style.display='flex'}
+function cancella(i){if(confirm('Eliminare registrazione?')){db.records.splice(i,1);modificato=true;render()}}
+
+function salvaJSON(){
+let a=document.createElement('a');
+a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)]));
+a.download=(archivioAttivo==='Nuovo archivio non salvato'?'Gestionale.json':archivioAttivo);
+a.click();
+modificato=false;
+}
+function caricaJSON(){
+let f=document.createElement('input');
+f.type='file';
+f.accept='.json';
+f.onchange=e=>{
+let file=e.target.files[0];
+archivioAttivo=file.name;
+archivioInfo.textContent='📁 Archivio attivo: '+file.name;
+let r=new FileReader();
+r.onload=()=>{db=JSON.parse(r.result);if(db.config){tema.value=db.config.tema||'Dark Blu';testo.value=db.config.testo||'Bianco';font.value=db.config.font||'16';applicaTema();}render();modificato=false;};
+r.readAsText(file);
+};
+f.click();
+}
+
+function setup(){
+slavoratore.value=db.setup.lavoratore||'';
+sditta.value=db.setup.ditta||'';
+slocalita.value=db.setup.localita||'';
+sveicolo.value=db.setup.veicolo||'';
+starga.value=db.setup.targa||''; stariffa.value=db.setup.tariffa||0; srimborso.value=db.setup.rimborsoKm||0;
+setupModal.style.display='flex';
+}
+function salvaSetup(){
+db.setup={
+ lavoratore:slavoratore.value,
+ ditta:sditta.value,
+ localita:slocalita.value,
+ veicolo:sveicolo.value,
+ targa:starga.value,
+ tariffa:+stariffa.value,
+ rimborsoKm:+srimborso.value
+};
+modificato=true;
+setupModal.style.display='none';
+}
+
+function applicaTema(){
+const temi={
+'Dark Blu':['#2f2f3f','#3b3b52','#474763'],
+'Dark Grigio':['#2f2f2f','#444','#555'],
+'Dark Verde':['#233326','#34503a','#406448'],
+'Dark Rosso':['#3a2323','#553535','#6a4545'],
+'Chiaro':['#efefef','#ffffff','#dddddd']
+};
+const txt={'Bianco':'#fff','Giallo':'#ffff88','Verde Chiaro':'#88ff88','Azzurro':'#88ddff','Arancione':'#ffbb66'};
+let c=temi[tema.value];
+document.documentElement.style.setProperty('--bg',c[0]);
+document.documentElement.style.setProperty('--panel',c[1]);
+document.documentElement.style.setProperty('--panel2',c[2]);
+document.documentElement.style.setProperty('--text',txt[testo.value]);
+document.body.style.fontSize=font.value+'px'; db.config={tema:tema.value,testo:testo.value,font:font.value}; modificato=true;
+}
+
+function esci(){
+ if(modificato){
+   exitModal.style.display='flex';
+   return;
+ }
+ uscitaForzata();
+}
+
+function uscitaForzata(){
+ window.close();
+ setTimeout(()=>alert('Se la scheda non si chiude automaticamente, chiudila manualmente.'),100);
+}
+
+
+
+function formattaDataIT(d){
+ if(!d) return '';
+ let p=d.split('-');
+ if(p.length!==3) return d;
+ return p[2]+'/'+p[1]+'/'+p[0];
+}
+
+function aggiornaPeriodoUI(){
+ const p=document.getElementById('periodoStampa').value;
+ const box=document.getElementById('periodoCustom');
+ if(box) box.style.display=(p==='periodo'||p==='oresolo')?'block':'none';
+}
+function apriStampe(){
+ dataStampa.value=oggi();
+ aggiornaPeriodoUI();
+ document.getElementById('periodoStampa').onchange=aggiornaPeriodoUI;
+ stampeModal.style.display='flex';
+}
+
+function anteprimaStampa(){
+ let w=window.open('','_blank');
+ let tipo=tipoStampa.value;
+ let periodo=periodoStampa.value;
+ let dataSel=dataStampa.value;
+
+ 
+
+
+
+
+if(tipo==='riassuntiva' && periodo==='aziende'){
+ let map={};
+
+ db.records.forEach(r=>{
+   let nome=(r.cliente||r.azienda||'Senza Nome').trim();
+   if(!map[nome]) map[nome]={giorni:0,ore:0,g:0,p:0,v:0,c:0};
+
+   let ore=oreCalcolate(r);
+   let p=r.pranzo+r.cena+r.hotel+r.altrep;
+   let v=r.carb+r.auto+r.park+r.altrev;
+   let g=ore*(db.setup.tariffa||0);
+   let c=g+p+v;
+
+   map[nome].giorni++;
+   map[nome].ore+=ore;
+   map[nome].g+=g;
+   map[nome].p+=p;
+   map[nome].v+=v;
+   map[nome].c+=c;
+ });
+
+ let righe='';
+ let totale=0;
+
+ Object.entries(map)
+ .sort((a,b)=>b[1].c-a[1].c)
+ .forEach(([az,d])=>{
+   totale+=d.c;
+   righe+=`<tr>
+   <td>${az}</td>
+   <td>${d.giorni}</td>
+   <td>${d.ore.toFixed(2)}</td>
+   <td>€ ${d.g.toFixed(2)}</td>
+   <td>€ ${d.p.toFixed(2)}</td>
+   <td>€ ${d.v.toFixed(2)}</td>
+   <td>€ ${d.c.toFixed(2)}</td>
+   </tr>`;
+ });
+
+ w.document.write(`<html><body style="font-family:Arial;padding:25px">
+ <h1>RIASSUNTIVA AZIENDE</h1>
+ <table border="1" cellspacing="0" cellpadding="6" width="100%">
+ <tr>
+ <th>Azienda</th><th>Giorni</th><th>Ore</th>
+ <th>Guadagno</th><th>Persona</th>
+ <th>Veicolo</th><th>Credito</th>
+ </tr>
+ ${righe}
+ </table>
+ <h2 style="background:#c8ffd0;padding:10px">
+ TOTALE CREDITO € ${totale.toFixed(2)}
+ </h2>
+ 
+
+</div>
+
+</body></html>`);
+ w.document.close();
+ return;
+}
+
+
+if(tipo==='riassuntiva' && periodo==='anno'){
+ let anno=new Date(dataSel).getFullYear();
+ let mesi=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+ let rows='';
+ let oreA=0,gA=0,pA=0,vA=0,cA=0;
+
+ for(let m=0;m<12;m++){
+   let oreT=0,gT=0,pT=0,vT=0,cT=0;
+
+   db.records.forEach(r=>{
+     let d=new Date(r.data);
+     if(d.getFullYear()!==anno || d.getMonth()!==m) return;
+
+     let ore=oreCalcolate(r);
+     let p=r.pranzo+r.cena+r.hotel+r.altrep;
+     let v=r.carb+r.auto+r.park+r.altrev;
+     let g=ore*(db.setup.tariffa||0);
+     let c=g+p+v;
+
+     oreT+=ore; gT+=g; pT+=p; vT+=v; cT+=c;
+   });
+
+   oreA+=oreT; gA+=gT; pA+=pT; vA+=vT; cA+=cT;
+
+   rows += `<tr>
+   <td>${mesi[m]}</td>
+   <td>${oreT.toFixed(2)}</td>
+   <td>€ ${gT.toFixed(2)}</td>
+   <td>€ ${pT.toFixed(2)}</td>
+   <td>€ ${vT.toFixed(2)}</td>
+   <td>€ ${cT.toFixed(2)}</td>
+   </tr>`;
+ }
+
+ w.document.write(`<html><head><title>Riassuntiva Annuale</title>
+ <style>
+ body{font-family:Arial;padding:25px}
+ h1,h2{text-align:center}
+ table{width:100%;border-collapse:collapse}
+ th,td{border:1px solid #000;padding:8px}
+ .credit{margin-top:20px;background:#c8ffd0;border:3px solid #4caf50;padding:15px;text-align:center;font-size:30px;font-weight:bold}
+ </style></head><body>
+ <h1>GESTIONALE ORE E SPESE</h1>
+ <h2>ANNO ${anno}</h2>
+ <table>
+ <tr><th>Mese</th><th>Ore</th><th>Guadagno</th><th>Persona</th><th>Veicolo</th><th>Credito</th></tr>
+ ${rows}
+ <tr><th>TOTALI</th><th>${oreA.toFixed(2)}</th><th>€ ${gA.toFixed(2)}</th><th>€ ${pA.toFixed(2)}</th><th>€ ${vA.toFixed(2)}</th><th>€ ${cA.toFixed(2)}</th></tr>
+ </table>
+ <div class="credit">TOTALE CREDITO ANNO € ${cA.toFixed(2)}</div>
+ 
+
+</div>
+
+</body></html>`);
+ w.document.close();
+ return;
+}
+
+if(tipo==='riassuntiva' && periodo==='mese'){
+ let sel=new Date(dataSel);
+ let mese=sel.getMonth();
+ let anno=sel.getFullYear();
+ let mesi=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+ let rows='';
+ let oreT=0,gT=0,pT=0,vT=0,cT=0;
+
+ db.records.filter(r=>{
+   let d=new Date(r.data);
+   return d.getMonth()===mese && d.getFullYear()===anno;
+ }).sort((a,b)=>a.data.localeCompare(b.data))
+ .forEach(r=>{
+   let ore=oreCalcolate(r);
+   let p=r.pranzo+r.cena+r.hotel+r.altrep;
+   let v=r.carb+r.auto+r.park+r.altrev;
+   let g=ore*(db.setup.tariffa||0);
+   let c=g+p+v;
+
+   oreT+=ore; gT+=g; pT+=p; vT+=v; cT+=c;
+
+   rows+=`<tr>
+   <td>${formattaDataIT(r.data)}</td>
+   <td>${r.cliente}</td>
+   <td>${ore.toFixed(2)}</td>
+   <td>€ ${g.toFixed(2)}</td>
+   <td>€ ${p.toFixed(2)}</td>
+   <td>€ ${v.toFixed(2)}</td>
+   <td>€ ${c.toFixed(2)}</td>
+   </tr>`;
+ });
+
+ w.document.write(`<html><head><title>Riassuntiva Mensile</title>
+ <style>
+ body{font-family:Arial;padding:25px}
+ h1,h2{text-align:center}
+ table{width:100%;border-collapse:collapse}
+ th,td{border:1px solid #000;padding:8px}
+ .credit{margin-top:20px;background:#c8ffd0;border:3px solid #4caf50;padding:15px;text-align:center;font-size:30px;font-weight:bold}
+ </style></head><body>
+ <h1>GESTIONALE ORE E SPESE</h1>
+ <h2>MESE: ${mesi[mese]} ${anno}</h2>
+ <table>
+ <tr><th>Data</th><th>Azienda</th><th>Ore</th><th>Guadagno</th><th>Persona</th><th>Veicolo</th><th>Credito</th></tr>
+ ${rows}
+ <tr><th>TOTALI</th><th></th><th>${oreT.toFixed(2)}</th><th>€ ${gT.toFixed(2)}</th><th>€ ${pT.toFixed(2)}</th><th>€ ${vT.toFixed(2)}</th><th>€ ${cT.toFixed(2)}</th></tr>
+ </table>
+ <div class="credit">TOTALE CREDITO € ${cT.toFixed(2)}</div>
+ 
+
+</div>
+
+</body></html>`);
+ w.document.close();
+ return;
+}
+
+
+if(tipo==='riassuntiva' && periodo==='settimana'){
+ let sel=new Date(dataSel);
+ let day=sel.getDay(); if(day===0) day=7;
+ let lun=new Date(sel); lun.setDate(sel.getDate()-day+1);
+ let dom=new Date(lun); dom.setDate(lun.getDate()+6);
+
+ let rows='';
+ let oreT=0,gT=0,pT=0,vT=0,cT=0;
+
+ db.records
+ .filter(r=>{
+   let d=new Date(r.data);
+   return d>=lun && d<=dom;
+ })
+ .sort((a,b)=>a.data.localeCompare(b.data))
+ .forEach(r=>{
+   let ore=oreCalcolate(r);
+   let p=r.pranzo+r.cena+r.hotel+r.altrep;
+   let v=r.carb+r.auto+r.park+r.altrev;
+   let g=ore*(db.setup.tariffa||0);
+   let c=g+p+v;
+
+   oreT+=ore; gT+=g; pT+=p; vT+=v; cT+=c;
+
+   rows += `<tr>
+   <td>${formattaDataIT(r.data)}</td>
+   <td>${r.cliente}</td>
+   <td>${ore.toFixed(2)}</td>
+   <td>€ ${g.toFixed(2)}</td>
+   <td>€ ${p.toFixed(2)}</td>
+   <td>€ ${v.toFixed(2)}</td>
+   <td>€ ${c.toFixed(2)}</td>
+   </tr>`;
+ });
+
+ w.document.write(`
+ <html><head>
+ <title>Riassuntiva Settimanale</title>
+ <style>
+ body{font-family:Arial;padding:25px}
+ h1,h2{text-align:center}
+ table{width:100%;border-collapse:collapse}
+ th,td{border:1px solid #000;padding:8px}
+ .credit{margin-top:20px;background:#c8ffd0;border:3px solid #4caf50;
+ padding:15px;text-align:center;font-size:30px;font-weight:bold}
+ </style></head><body>
+
+ <h1>GESTIONALE ORE E SPESE</h1>
+ <h2>SETTIMANA DAL ${formattaDataIT(lun.toISOString().slice(0,10))}
+ AL ${formattaDataIT(dom.toISOString().slice(0,10))}</h2>
+
+ <table>
+ <tr>
+ <th>Data</th><th>Azienda</th><th>Ore</th>
+ <th>Guadagno</th><th>Persona</th>
+ <th>Veicolo</th><th>Credito</th>
+ </tr>
+ ${rows}
+ <tr>
+ <th>TOTALI</th>
+ <th></th>
+ <th>${oreT.toFixed(2)}</th>
+ <th>€ ${gT.toFixed(2)}</th>
+ <th>€ ${pT.toFixed(2)}</th>
+ <th>€ ${vT.toFixed(2)}</th>
+ <th>€ ${cT.toFixed(2)}</th>
+ </tr>
+ </table>
+
+ <div class="credit">TOTALE CREDITO € ${cT.toFixed(2)}</div>
+
+ 
+
+</div>
+
+</body></html>`);
+ w.document.close();
+ return;
+}
+
+
+
+
+if(tipo==='descrittiva' && periodo==='anno'){
+ let anno=new Date(dataSel).getFullYear();
+ const mesi=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+ let body='';
+ let oreA=0,gA=0,pA=0,vA=0,cA=0;
+
+ for(let m=0;m<12;m++){
+   let blocco='';
+   let oreM=0,gM=0,pM=0,vM=0,cM=0;
+
+   db.records.filter(r=>{
+      let d=new Date(r.data);
+      return d.getFullYear()===anno && d.getMonth()===m;
+   }).sort((a,b)=>a.data.localeCompare(b.data))
+   .forEach(r=>{
+      let ore=oreCalcolate(r);
+      let p=r.pranzo+r.cena+r.hotel+r.altrep;
+      let v=r.carb+r.auto+r.park+r.altrev;
+      let g=ore*(db.setup.tariffa||0);
+      let c=g+p+v;
+
+      oreM+=ore; gM+=g; pM+=p; vM+=v; cM+=c;
+      oreA+=ore; gA+=g; pA+=p; vA+=v; cA+=c;
+
+      blocco+=`<div style="margin-left:15px;margin-bottom:8px">
+      ${formattaDataIT(r.data)} - ${r.cliente} - Ore ${ore.toFixed(2)} - Credito € ${c.toFixed(2)}
+      </div>`;
+   });
+
+   if(blocco){
+      body+=`<h2>${mesi[m]}</h2>${blocco}
+      <div style="background:#eee;padding:8px;margin-bottom:15px">
+      Totale mese: € ${cM.toFixed(2)}
+      </div>`;
+   }
+ }
+
+ w.document.write(`<html><body style="font-family:Arial;padding:25px">
+ <h1>DESCRITTIVA ANNUALE ${anno}</h1>
+ <p><b>Lavoratore:</b> ${db.setup.lavoratore||''} - <b>Ditta:</b> ${db.setup.ditta||''}</p>
+ ${body}
+ <div style="background:#c8ffd0;border:3px solid #4caf50;padding:15px">
+ Ore Totali: ${oreA.toFixed(2)}<br>
+ Guadagno: € ${gA.toFixed(2)}<br>
+ Spese Persona: € ${pA.toFixed(2)}<br>
+ Spese Veicolo: € ${vA.toFixed(2)}<br>
+ <b>TOTALE CREDITO ANNO: € ${cA.toFixed(2)}</b>
+ </div>
+
+</div>
+
+</body></html>`);
+ w.document.close();
+ return;
+}
+
+if(tipo==='descrittiva' && periodo==='mese'){
+ let sel=new Date(dataSel);
+ let mese=sel.getMonth();
+ let anno=sel.getFullYear();
+
+ let body='';
+ let oreT=0,gT=0,pT=0,vT=0,cT=0;
+
+ db.records.filter(r=>{
+   let d=new Date(r.data);
+   return d.getMonth()===mese && d.getFullYear()===anno;
+ }).sort((a,b)=>a.data.localeCompare(b.data))
+ .forEach(r=>{
+   let ore=oreCalcolate(r);
+   let p=r.pranzo+r.cena+r.hotel+r.altrep;
+   let v=r.carb+r.auto+r.park+r.altrev;
+   let g=ore*(db.setup.tariffa||0);
+   let c=g+p+v;
+
+   oreT+=ore; gT+=g; pT+=p; vT+=v; cT+=c;
+
+   body+=`
+   <div style="border:1px solid #999;padding:12px;margin-bottom:12px">
+   <h3>${formattaDataIT(r.data)} - ${r.cliente}</h3>
+   <p><b>Località:</b> ${r.localita}</p>
+   <p><b>Ore:</b> ${r.im}-${r.fm} | ${r.ip}-${r.fp} = ${ore.toFixed(2)} h</p>
+   <p><b>Guadagno:</b> € ${g.toFixed(2)}</p>
+   <p><b>Spese Persona:</b> € ${p.toFixed(2)}</p>
+   <p><b>Spese Veicolo:</b> € ${v.toFixed(2)}</p>
+   <p><b>Note:</b> ${r.note||''}</p>
+   </div>`;
+ });
+
+ const mesi=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+ w.document.write(`<html><body style="font-family:Arial;padding:25px">
+ <h1>GESTIONALE ORE E SPESE</h1>
+ <h2>DESCRITTIVA MENSILE - ${mesi[mese]} ${anno}</h2>
+ <p><b>Lavoratore:</b> ${db.setup.lavoratore||''}<br>
+ <b>Ditta:</b> ${db.setup.ditta||''}<br>
+ <b>Veicolo:</b> ${db.setup.veicolo||''} ${db.setup.targa||''}<br>
+ <b>Località:</b> ${db.setup.localita||''}</p>
+ ${body}
+ <div style="background:#c8ffd0;border:3px solid #4caf50;padding:15px">
+ Ore Totali: ${oreT.toFixed(2)}<br>
+ Guadagno: € ${gT.toFixed(2)}<br>
+ Spese Persona: € ${pT.toFixed(2)}<br>
+ Spese Veicolo: € ${vT.toFixed(2)}<br>
+ <b>TOTALE CREDITO: € ${cT.toFixed(2)}</b>
+ </div>
+ 
+
+</div>
+
+</body></html>`);
+ w.document.close();
+ return;
+}
+
+if(tipo==='descrittiva' && periodo==='settimana'){
+ let sel=new Date(dataSel);
+ let day=sel.getDay(); if(day===0) day=7;
+ let lun=new Date(sel); lun.setDate(sel.getDate()-day+1);
+ let dom=new Date(lun); dom.setDate(lun.getDate()+6);
+
+ let body='';
+ let oreT=0,gT=0,pT=0,vT=0,cT=0;
+
+ db.records.filter(r=>{
+   let d=new Date(r.data);
+   return d>=lun && d<=dom;
+ }).sort((a,b)=>a.data.localeCompare(b.data))
+ .forEach(r=>{
+   let ore=oreCalcolate(r);
+   let p=r.pranzo+r.cena+r.hotel+r.altrep;
+   let v=r.carb+r.auto+r.park+r.altrev;
+   let g=ore*(db.setup.tariffa||0);
+   let c=g+p+v;
+
+   oreT+=ore; gT+=g; pT+=p; vT+=v; cT+=c;
+
+   body+=`
+   <div style="border:1px solid #999;padding:12px;margin-bottom:12px">
+   <h3>${formattaDataIT(r.data)} - ${r.cliente}</h3>
+   <p><b>Località:</b> ${r.localita}</p>
+   <p><b>Ore:</b> ${r.im}-${r.fm} | ${r.ip}-${r.fp} = ${ore.toFixed(2)} h</p>
+   <p><b>Guadagno:</b> € ${g.toFixed(2)}</p>
+   <p><b>Spese Persona:</b> € ${p.toFixed(2)}</p>
+   <p><b>Spese Veicolo:</b> € ${v.toFixed(2)}</p>
+   <p><b>Note:</b> ${r.note||''}</p>
+   </div>`;
+ });
+
+ w.document.write(`<html><body style="font-family:Arial;padding:25px">
+ <h1>GESTIONALE ORE E SPESE</h1>
+ <h2>DESCRITTIVA SETTIMANALE</h2>
+ <p><b>Lavoratore:</b> ${db.setup.lavoratore||''}<br>
+ <b>Ditta:</b> ${db.setup.ditta||''}<br>
+ <b>Veicolo:</b> ${db.setup.veicolo||''} ${db.setup.targa||''}</p>
+ ${body}
+ <div style="background:#c8ffd0;border:3px solid #4caf50;padding:15px">
+ Ore Totali: ${oreT.toFixed(2)}<br>
+ Guadagno: € ${gT.toFixed(2)}<br>
+ Spese Persona: € ${pT.toFixed(2)}<br>
+ Spese Veicolo: € ${vT.toFixed(2)}<br>
+ <b>TOTALE CREDITO: € ${cT.toFixed(2)}</b>
+ </div>
+ 
+
+</div>
+
+</body></html>`);
+ w.document.close();
+ return;
+}
+
+if(tipo==='descrittiva' && periodo==='giorno'){
+ let r=db.records.find(x=>x.data===dataSel);
+ if(!r){alert('Nessuna registrazione trovata per la data selezionata');return;}
+ let ore=oreCalcolate(r);
+ let persona=r.pranzo+r.cena+r.hotel+r.altrep;
+ let veicolo=r.carb+r.auto+r.park+r.altrev;
+ let guadagno=ore*(db.setup.tariffa||0);
+ let credito=guadagno+persona+veicolo;
+
+ w.document.write(`<html><body style="font-family:Arial;padding:25px">
+ <h1>GESTIONALE ORE E SPESE</h1>
+ <h2>DESCRITTIVA GIORNALIERA</h2>
+ <p><b>Data:</b> ${formattaDataIT(r.data)}</p>
+ <p><b>Azienda:</b> ${r.cliente}</p>
+ <p><b>Località:</b> ${r.localita}</p>
+ <hr>
+ <h3>Ore di lavoro</h3>
+ <p>Mattino: ${r.im} - ${r.fm}<br>Pomeriggio: ${r.ip} - ${r.fp}</p>
+ <p>Ore Totali: ${ore.toFixed(2)}<br>Tariffa: € ${(db.setup.tariffa||0).toFixed(2)}<br>Guadagno: € ${guadagno.toFixed(2)}</p>
+ <h3>Spese Persona</h3>
+ <p>Pranzo € ${r.pranzo.toFixed(2)} - Cena € ${r.cena.toFixed(2)} - Hotel € ${r.hotel.toFixed(2)} - Altre € ${r.altrep.toFixed(2)}</p>
+ <h3>Spese Veicolo</h3>
+ <p>Carburante € ${r.carb.toFixed(2)} - Autostrada € ${r.auto.toFixed(2)} - Parcheggio € ${r.park.toFixed(2)} - Altre € ${r.altrev.toFixed(2)}</p>
+ <h3>Note</h3><p>${r.note||''}</p>
+ <h2 style="background:#c8ffd0;padding:10px">TOTALE CREDITO € ${credito.toFixed(2)}</h2>
+ 
+
+</div>
+
+</body></html>`);
+ w.document.close();
+ return;
+}
+
+if(periodo==='periodo' || periodo==='oresolo'){
+ let dal=dataDal.value, al=dataAl.value;
+ if(!dal||!al){alert('Seleziona data Dal e Al');return;}
+ let rows=''; let oreT=0;
+ db.records.filter(r=>r.data>=dal && r.data<=al)
+ .sort((a,b)=>a.data.localeCompare(b.data))
+ .forEach(r=>{
+   let ore=oreCalcolate(r); oreT+=ore;
+   if(periodo==='oresolo'){
+      rows+=`<tr><td>${formattaDataIT(r.data)}</td><td>${r.cliente}</td><td>${ore.toFixed(2)}</td></tr>`;
+   }else{
+      let p=r.pranzo+r.cena+r.hotel+r.altrep;
+      let v=r.carb+r.auto+r.park+r.altrev;
+      let g=ore*(db.setup.tariffa||0);
+      let c=g+p+v;
+      rows+=`<tr><td>${formattaDataIT(r.data)}</td><td>${r.cliente}</td><td>${ore.toFixed(2)}</td><td>€ ${g.toFixed(2)}</td><td>€ ${p.toFixed(2)}</td><td>€ ${v.toFixed(2)}</td><td>€ ${c.toFixed(2)}</td></tr>`;
+   }
+ });
+ let table= periodo==='oresolo'
+ ? `<table border="1" cellspacing="0" cellpadding="6" width="100%"><tr><th>Data</th><th>Azienda</th><th>Ore</th></tr>${rows}<tr><th colspan="2">Totale Ore</th><th>${oreT.toFixed(2)}</th></tr></table>`
+ : `<table border="1" cellspacing="0" cellpadding="6" width="100%"><tr><th>Data</th><th>Azienda</th><th>Ore</th><th>Guadagno</th><th>Persona</th><th>Veicolo</th><th>Credito</th></tr>${rows}</table>`;
+ w.document.write(`<html><body style="font-family:Arial;padding:25px"><h1>${periodo==='oresolo'?'STAMPA ORE':'STAMPA PERIODO'}</h1><h3>Dal ${formattaDataIT(dal)} al ${formattaDataIT(al)}</h3>${table}</body></html>`);
+ w.document.close();
+ return;
+}
+
+
+let ore=0,p=0,v=0,g=0;
+
+
+ db.records.forEach(r=>{
+   
+if(periodo==='giorno' && r.data!==dataSel) return;
+
+if(periodo==='settimana'){
+ let sel=new Date(dataSel);
+ let d=new Date(r.data);
+ let day=sel.getDay(); if(day===0) day=7;
+ let lun=new Date(sel); lun.setDate(sel.getDate()-day+1);
+ let dom=new Date(lun); dom.setDate(lun.getDate()+6);
+ if(d<lun || d>dom) return;
+}
+
+
+   let h1=oreCalcolate(r);
+   let pe=r.pranzo+r.cena+r.hotel+r.altrep;
+   let ve=r.carb+r.auto+r.park+r.altrev;
+   let gu=h1*(db.setup.tariffa||0);
+
+   ore+=h1;
+   p+=pe;
+   v+=ve;
+   g+=gu;
+ });
+
+ let credito=g+p+v;
+
+ w.document.write(`
+ <html>
+ <head>
+ <title>Anteprima Stampa</title>
+ <style>
+ body{font-family:Arial;padding:30px}
+ h1{text-align:center}
+ table{width:100%;border-collapse:collapse;margin-top:20px}
+ td{border:1px solid #000;padding:8px}
+ .tot{font-size:28px;font-weight:bold;background:#c8ffd0}
+ </style>
+ </head>
+ <body>
+ <h1>GESTIONALE ORE E SPESE</h1>
+
+ <h2>${tipo.toUpperCase()} - ${periodo.toUpperCase()}</h2>
+${periodo==='settimana' ? '<p><b>Periodo settimanale basato sulla data selezionata</b></p>' : ''}
+
+ <table>
+ <tr><td>Data</td><td>${formattaDataIT(dataSel)}</td></tr>
+ <tr><td>Ore Totali</td><td>${ore.toFixed(2)}</td></tr>
+ <tr><td>Guadagno</td><td>€ ${g.toFixed(2)}</td></tr>
+ <tr><td>Spese Persona</td><td>€ ${p.toFixed(2)}</td></tr>
+ <tr><td>Spese Veicolo</td><td>€ ${v.toFixed(2)}</td></tr>
+ <tr class="tot"><td>TOTALE CREDITO</td><td>€ ${credito.toFixed(2)}</td></tr>
+ </table>
+
+ <p>Anteprima di stampa - Versione iniziale</p>
+ 
+
+</div>
+
+</body></html>
+ `);
+ w.document.close();
+}
+
+
+let recordsView=null;
+
+function renderRows(lista){
+tb.innerHTML='';let o=0,p=0,v=0,g=0;
+lista.forEach((r,i)=>{
+let ore=oreCalcolate(r),pe=r.pranzo+r.cena+r.hotel+r.altrep,ve=r.carb+r.auto+r.park+r.altrev;
+let guad=ore*(db.setup.tariffa||0); let rimb=pe+ve;
+o+=ore;p+=pe;v+=ve;g+=guad;
+tb.innerHTML+=`<tr><td>${formattaDataIT(r.data)}</td><td>${r.cliente}</td><td>${ore.toFixed(2)}</td><td>${guad.toFixed(2)}</td><td>${pe.toFixed(2)}</td><td>${ve.toFixed(2)}</td><td>${rimb.toFixed(2)}</td><td><button onclick="carica(${db.records.indexOf(r)})">Modifica</button> <button onclick="cancella(${db.records.indexOf(r)})">Elimina</button></td></tr>`;
+});
+}
+
+function cercaData(){
+let d=filtroData.value;
+recordsView=db.records.filter(r=>r.data===d);
+infoFiltro.textContent='Visualizzazione filtrata: '+recordsView.length+' registrazioni';
+renderRows(recordsView);
+}
+
+function cercaAzienda(){
+let t=filtroAzienda.value.toLowerCase().trim();
+recordsView=db.records.filter(r=>(r.cliente||'').toLowerCase().includes(t));
+infoFiltro.textContent='Visualizzazione filtrata: '+recordsView.length+' registrazioni';
+renderRows(recordsView);
+}
+
+function mostraTutto(){
+recordsView=null;
+infoFiltro.textContent='';
+render();
+}
+
+render();
+applicaTema();
+</script>
+
+<div class="modal" id="exitModal">
+<div class="modalContent" style="max-width:650px;background:#b30000;color:white;border:4px solid #ff6666">
+<h1 style="text-align:center">⚠️ ATTENZIONE ⚠️</h1>
+<p style="font-size:20px;text-align:center">
+Sono presenti modifiche NON salvate.
+</p>
+<p style="font-size:18px">
+Se esci adesso perderai:
+<br>• Nuovi inserimenti
+<br>• Modifiche effettuate
+<br>• Eliminazioni effettuate
+</p>
+<p style="font-size:20px;font-weight:bold;text-align:center">
+SALVA JSON PRIMA DI USCIRE
+</p>
+<div style="text-align:center;margin-top:20px">
+<button onclick="exitModal.style.display='none'" style="background:#008000">Torna al Programma</button>
+<button onclick="uscitaForzata()" style="background:#333">Esci Comunque</button>
+</div>
+</div>
+</div>
+
+
+<div class="modal" id="setupModal">
+<div class="modalContent" style="max-width:650px">
+<h2>Setup Generale</h2>
+
+<label>Nome Lavoratore</label>
+<input id="slavoratore">
+
+<label>Nome Ditta</label>
+<input id="sditta">
+
+<label>Località</label>
+<input id="slocalita">
+
+<label>Veicolo</label>
+<input id="sveicolo">
+
+<label>Targa</label>
+<input id="starga">
+
+<label>Tariffa Oraria (€)</label>
+<input id="stariffa" type="number" step="0.01">
+
+
+<label>Rimborso Km (€)</label>
+<input id="srimborso" type="number" step="0.01">
+
+<hr>
+<button type="button" onclick="selezionaCartellaPDF()">📁 Seleziona Cartella PDF</button>
+<div id="pdfFolderInfo" style="margin-top:8px">Nessuna cartella PDF selezionata</div>
+
+
+<div class="right" style="margin-top:15px">
+<button onclick="setupModal.style.display='none'">Annulla</button>
+<button onclick="salvaSetup()">Salva</button>
+</div>
+</div>
+</div>
+
+
+<div class="modal" id="stampeModal">
+<div class="modalContent" style="max-width:700px">
+<h2>Gestione Stampe</h2>
+
+<label>Tipo Stampa</label>
+<select id="tipoStampa">
+<option value="riassuntiva">Riassuntiva</option>
+<option value="descrittiva">Descrittiva</option>
+</select>
+
+<label>Periodo</label>
+<select id="periodoStampa">
+<option value="giorno">Giorno</option>
+<option value="settimana">Settimana</option>
+<option value="mese">Mese</option>
+<option value="anno">Anno</option><option value="aziende">Aziende</option><option value="periodo">Periodo personalizzato</option><option value="oresolo">Solo Ore</option>
+</select>
+
+<label>Data di riferimento</label>
+<input type="date" id="dataStampa" onclick="this.showPicker&&this.showPicker()">
+<div id="periodoCustom" style="margin-top:10px">
+<label>Dal</label><input type="date" id="dataDal">
+<label>Al</label><input type="date" id="dataAl">
+</div>
+
+<div class="right">
+<button onclick="stampeModal.style.display='none'">Chiudi</button>
+<button onclick="anteprimaStampa()">Anteprima</button>
+</div>
+</div>
+</div>
+
+
+<div class="modal" id="pdfModal">
+<div class="modalContent" style="max-width:1200px">
+<h2 id="pdfNome">Archivio PDF</h2>
+<div style="display:grid;grid-template-columns:300px 1fr;gap:10px">
+<div id="pdfList" style="border:1px solid #666;overflow:auto;max-height:70vh"></div>
+<div>
+<iframe id="pdfViewer" style="width:100%;height:70vh;border:1px solid #666;visibility:hidden"></iframe>
+<div style="margin-top:10px">
+<button onclick="apriPdfNuovaFinestra()">Apri in nuova finestra</button>
+<button onclick="chiudiPdfViewer()">Chiudi PDF</button>
+<button onclick="document.getElementById('pdfModal').style.display='none'">Chiudi Archivio</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</body></html>
